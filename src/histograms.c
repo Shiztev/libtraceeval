@@ -38,7 +38,7 @@ struct traceeval_iterator {};  // TODO
  * an instance of type TRACEEVAL_TYPE_NONE.
  * Returns NULL if @defs is NULL, or a name is not null terminated.
  */
-const struct traceeval_type *alloc_type(const struct traceeval_type *defs)
+const struct traceeval_type *type_alloc(const struct traceeval_type *defs)
 {
 	struct traceeval_type *new_defs = calloc (1,
 				sizeof(struct traceeval_type));
@@ -89,8 +89,8 @@ struct traceeval *traceeval_init(const struct traceeval_type *keys,
 	struct traceeval *eval;
 
 	eval = calloc(1, sizeof(struct traceeval));
-	eval->def_keys = alloc_type(keys);
-	eval->def_vals = alloc_type(vals);
+	eval->def_keys = type_alloc(keys);
+	eval->def_vals = type_alloc(vals);
 	eval->hist = calloc(1, sizeof(struct hist_table));
 	eval->hist->nr_entries = 0;
 
