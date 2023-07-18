@@ -37,11 +37,15 @@ enum traceeval_flags {
  * Describes a struct traceeval_data instance
  * Defines expectations for a corresponding traceeval_data instance for a
  * traceeval histogram instance. Used to describe both keys and values.
+ *
+ * dyn_release() is used during traceeval_release() to release traceeval_data
+ * when corresponding traceeval_type @type is set to TRACEEVAL_TYPE_DYNAMIC.
  */
 struct traceeval_type {
 	enum traceeval_data_type	type;
-	const char		*name;
-	size_t			flags;
+	const char			*name;
+	size_t				flags;
+	int (*dyn_release)(union traceeval_data *);
 };
 
 /** Storage for atypical data */
@@ -55,13 +59,13 @@ struct traceeval_dynamic {
  * Constitutes keys and values.
  */
 union traceeval_data {
-	const char			*string;
-	const traceeval_dynamic		*dyn_data;
-	unsigned long			number;
-	unsigned char			number_8;
-	unsigned short			number_16;
-	unsigned int			number_32;
-	unsigned long long		number_64;
+	const char				*string;
+	const struct traceeval_dynamic		*dyn_data;
+	unsigned long				number;
+	unsigned char				number_8;
+	unsigned short				number_16;
+	unsigned int				number_32;
+	unsigned long long			number_64;
 };
 
 // Histogram interfaces
@@ -74,6 +78,8 @@ struct traceeval;
  * @keys: Defines the keys of the "histogram"
  * @vals: Defines the vals of the "histogram"
  *
+ * The caller still owns @keys and @vals. The caller is responsible for any
+ * necessary clean up of @keys and @vals.
  * The @keys and @vals defines how the traceeval instance will be populated.
  * The @keys will be used by traceeval_query() to find an instance within
  * the "historgram". Note, both the @keys and @vals array must end with:
@@ -85,14 +91,29 @@ struct traceeval *traceeval_init(const struct traceeval_type *keys,
 				 const struct traceeval_type *vals);
 
 /**
+ * traceeval_release - release a traceeval descriptor
+ * @eval: An instance of traceeval returned by traceeval_init()
+ *
+ * When the caller of traceeval_init() is done with the returned @eval,
+ * it must call traceeval_release().
+ * This does not release any dynamically allocated data inserted by
+ * the user.
+ *
+ * Returns 0 on success, -1 on error.
+ */
+int traceeval_release(struct traceeval *eval);
+
+/**
  * traceeval_insert - Insert an item into the traceeval descriptor
  * @teval: The descriptor to insert into
  * @keys: The list of keys that defines what is being inserted.
  * @vals: The list of values that defines what is being inserted.
  *
+ * Any dynamically allocated data is still owned by the caller; the
+ * responsibility of deallocating it lies on the caller.
  * The @keys is an array that holds the data in the order of the keys
  * passed into traceeval_init(). That is, if traceeval_init() had
- * keys = { { .type = TRACEEVAL_STRING }, { .type = TRACEEVAL_NUMBER_8 }, 
+ * keys = { { .type = TRACEEVAL_STRING }, { .type = TRACEEVAL_NUMBER_8 },
  * { .type = TRACEEVAL_NONE } }; then the @keys array passed in must
  * be a string (char *) followed by a 8 byte number (char). The @keys
  * and @vals are only examined to where it expects data. That is,
