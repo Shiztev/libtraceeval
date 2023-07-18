@@ -68,8 +68,7 @@ const struct traceeval_type *type_alloc(const struct traceeval_type *defs)
 		new_defs[size].dyn_release = defs[size].dyn_release;
 
 		name = NULL;
-		size++;
-	} while (defs[size].type != TRACEEVAL_TYPE_NONE);
+	} while (defs[size++].type != TRACEEVAL_TYPE_NONE);
 
 	return new_defs;
 fail_type_name:
