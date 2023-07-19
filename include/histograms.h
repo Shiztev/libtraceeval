@@ -80,6 +80,8 @@ struct traceeval;
  *
  * The caller still owns @keys and @vals. The caller is responsible for any
  * necessary clean up of @keys and @vals.
+ * If the name field is set for any member of @keys or @vals, the string must
+ * be null-terminated.
  * The @keys and @vals defines how the traceeval instance will be populated.
  * The @keys will be used by traceeval_query() to find an instance within
  * the "historgram". Note, both the @keys and @vals array must end with:
@@ -111,6 +113,8 @@ int traceeval_release(struct traceeval *eval);
  *
  * Any dynamically allocated data is still owned by the caller; the
  * responsibility of deallocating it lies on the caller.
+ * If the string member of any member of @keys or @vals is set, it must be
+ * null-terminated.
  * The @keys is an array that holds the data in the order of the keys
  * passed into traceeval_init(). That is, if traceeval_init() had
  * keys = { { .type = TRACEEVAL_STRING }, { .type = TRACEEVAL_NUMBER_8 },

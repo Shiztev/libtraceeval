@@ -58,7 +58,7 @@ const struct traceeval_type *type_alloc(const struct traceeval_type *defs)
 		// copy null terminated name to heap
 		len_name = strlen(defs[size].name) + 1;
 		name = calloc(len_name, sizeof(char));
-		check = strlcpy(name, defs[size].name, len_name);
+		check = strncpy(name, defs[size].name, len_name);
 		if (check != len_name)
 			goto fail_type_name;
 
