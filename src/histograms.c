@@ -34,6 +34,165 @@ struct traceeval {
 struct traceeval_iterator {};  // TODO
 
 /**
+ * Return 0 if @orig and @copy are the same, 1 otherwise.
+ */
+int compare_traceeval_type(struct traceeval_type *orig,
+		struct traceeval_type *copy)
+{
+	// same memory/null
+	if (orig == copy)
+		return 0;
+
+	size_t i = 0;
+	do {
+		if (orig[i].type != copy[i].type)
+			return 1;
+		if (orig[i].flags != copy[i].flags)
+			return 1;
+		if (orig[i].dyn_release != copy[i].dyn_release)
+			return 1;
+		if (orig[i].dyn_cmp != copy[i].dyn_cmp)
+			return 1;
+		if (strcmp(orig[i].name, copy[i].name) != 0)
+			return 1;
+	} while (orig[i++].type != TRACEEVAL_TYPE_NONE);
+
+	return 0;
+}
+
+/**
+ * Return 0 if @orig and @copy are the same, 1 if @orig is greater than @copy,
+ * -1 for the other way around, and -2 on error.
+ */
+static int compare_traceeval_data(union traceeval_data *orig,
+		union traceeval_data *copy, struct traceeval_type *type)
+{
+	if (!orig || !copy)
+		return 1;
+
+	switch (type->type) {
+	case TRACEEVAL_TYPE_NONE:
+		/* There is no corresponding traceeval_data for TRACEEVAL_TYPE_NONE */
+		return -2;
+
+	case TRACEEVAL_TYPE_STRING:
+		int i = strcmp(orig->string, copy->string);
+		if (!i)
+			return 0;
+		if (i > 0)
+			return 1;
+		return -1;
+
+	case TRACEEVAL_TYPE_NUMBER:
+		if (orig->number == copy->number)
+			return 0;
+		if (orig->number > copy->number)
+			return 1;
+		return -1;
+
+	case TRACEEVAL_TYPE_NUMBER_64:
+		if (orig->number_64 == copy->number_64)
+			return 0;
+		if (orig->number_64 > copy->number_64)
+			return 1;
+		return -1;
+
+	case TRACEEVAL_TYPE_NUMBER_32:
+		if (orig->number_32 == copy->number_32)
+			return 0;
+		if (orig->number_32 > copy->number_32)
+			return 1;
+		return -1;
+
+	case TRACEEVAL_TYPE_NUMBER_16:
+		if (orig->number_16 == copy->number_16)
+			return 0;
+		if (orig->number_16 > copy->number_16)
+			return 1;
+		return -1;
+
+	case TRACEEVAL_TYPE_NUMBER_8:
+		if (orig->number_8 == copy->number_8)
+			return 0;
+		if (orig->number_8 > copy->number_8)
+			return 1;
+		return -1;
+
+	case TRACEEVAL_TYPE_DYNAMIC:
+		return type->dyn_cmp(orig, copy);
+
+	default:
+		fprintf(stderr, "%d is out of range of enum traceeval_data_type\n", type->type);
+		return -2;
+	}
+}
+
+/**
+ * Return 0 if @orig and @copy are the same, 1 if not, and -1 on error.
+ */
+static int compare_entries(struct entry *orig, struct entry *copy,
+		struct traceeval *eval)
+{
+	struct traceeval_type *type;
+	int i = 0;
+	int check;
+
+	// compare keys
+	do {
+		type = &eval->def_keys[i];
+		if ((check = compare_traceeval_data(&orig->keys[i], &copy->keys[i], type)))
+			goto entries_not_equal;
+		i++;
+	} while (type->type != TRACEEVAL_TYPE_NONE);
+
+	// compare values
+	i = 0;
+	do {
+		type = &eval->def_vals[i];
+		if ((check = compare_traceeval_data(&orig->vals[i], &copy->vals[i], type)))
+			goto entries_not_equal;
+		i++;
+	} while (type->type != TRACEEVAL_TYPE_NONE);
+
+	return 0;
+entries_not_equal:
+	if (check == -2)
+		return -1;
+	return 1;
+}
+
+/**
+ * Return 0 if struct hist_table of @orig and @copy are the same, 1 if not,
+ * and -1 on error.
+ */
+static int compare_hist(struct traceeval *orig, struct traceeval *copy)
+{
+	struct hist_table *o_hist = orig->hist;
+	struct hist_table *c_hist = copy->hist;
+	int cnt = !(o_hist->nr_entries == c_hist->nr_entries);
+	if (cnt)
+		return 1;
+
+	for (size_t i = 0; i < o_hist->nr_entries; i++) {
+		// cmp each entry
+		compare_entries(&o_hist->map[i], &c_hist->map[i], orig);
+	}
+	return 0;	
+}
+
+/**
+ * Return 0 if @orig and @copy are the same, 1 otherwise.
+ */
+int traceeval_compare(struct traceeval *orig, struct traceeval *copy)
+{
+	int keys = compare_traceeval_type(orig->def_keys, copy->def_keys);
+	int vals = compare_traceeval_type(orig->def_vals, copy->def_vals);
+	int hists = compare_hist(orig, copy);
+
+	return (keys || vals || hists);
+}
+
+/**
  * Clone traceeval_type array @defs to the heap. Must be terminated with
  * an instance of type TRACEEVAL_TYPE_NONE.
  * Returns NULL if @defs is NULL, or a name is not null terminated.
@@ -71,6 +230,7 @@ static const struct traceeval_type *type_alloc(const struct traceeval_type *defs
 		new_defs[size].name = name;
 		new_defs[size].flags = defs[size].flags;
 		new_defs[size].dyn_release = defs[size].dyn_release;
+		new_defs[size].dyn_cmp = defs[size].dyn_cmp;
 
 		name = NULL;
 	} while (defs[size++].type != TRACEEVAL_TYPE_NONE);

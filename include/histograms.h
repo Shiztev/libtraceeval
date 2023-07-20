@@ -23,8 +23,7 @@ enum traceeval_data_type {
 	TRACEEVAL_TYPE_NUMBER_32,
 	TRACEEVAL_TYPE_NUMBER_16,
 	TRACEEVAL_TYPE_NUMBER_8,
-	TRACEEVAL_TYPE_DYNAMIC,
-	TRACEEVAL_TYPE_MAX
+	TRACEEVAL_TYPE_DYNAMIC
 };
 
 /** Statistics specification flags */
@@ -52,14 +51,21 @@ union traceeval_data {
  * Defines expectations for a corresponding traceeval_data instance for a
  * traceeval histogram instance. Used to describe both keys and values.
  *
+ * dyn_cmp() is used to compare two union traceeval_data instances when the
+ * corresponding struct traceeval_type type field is set to
+ * TRACEEVAL_TYPE_DYNAMIC. It should return 0 on equality,1 if the first
+ * argument is greater than the second, -1 for the otherway around, and -2 on error.
+ *
  * dyn_release() is used during traceeval_release() to release traceeval_data
- * when corresponding traceeval_type @type is set to TRACEEVAL_TYPE_DYNAMIC.
+ * when the corresponding traceeval_type type is set to TRACEEVAL_TYPE_DYNAMIC.
+ * It should return 0 for success and -1 otherwise.
  */
 struct traceeval_type {
 	enum traceeval_data_type	type;
 	const char			*name;
 	size_t				flags;
 	int (*dyn_release)(union traceeval_data *);
+	int (*dyn_cmp)(union traceeval_data *, union traceeval_data*);
 };
 
 /** Storage for atypical data */
@@ -90,7 +96,7 @@ struct traceeval;
  * Retruns the descriptor on success, or NULL on error.
  */
 struct traceeval *traceeval_init(const struct traceeval_type *keys,
-				 const struct traceeval_type *vals);
+		const struct traceeval_type *vals);
 
 /**
  * traceeval_release - release a traceeval descriptor
@@ -129,8 +135,22 @@ int traceeval_release(struct traceeval *eval);
  * Returns 0 on success, and -1 on error.
  */
 int traceeval_insert(struct traceeval *teval,
-		     const union traceeval_data *keys,
-		     const union traceeval_data *vals);
+		const union traceeval_data *keys,
+		const union traceeval_data *vals);
+
+/**
+ * traceeval_compare - Check equality between two traceeval instances
+ * @orig: The first traceeval instance
+ * @copy: The second traceeval instance
+ *
+ * This compares the values of the key definitions, value definitions, and
+ * inserted data between @orig and @copy in order. It does not compare
+ * by memory address, except for struct traceeval_type's dyn_release() and
+ * dyn_cmp() fields.
+ *
+ * Returns 0 if @orig and @copy are the same, 1 if not, and -1 on error.
+ */
+int traceeval_compare(struct traceeval *orig, struct traceeval *copy);
 
 // interface to queuery traceeval
 
@@ -152,8 +172,8 @@ int traceeval_insert(struct traceeval *teval,
  * Returns 1 if found, 0 if not found, and -1 on error.
  */
 int traceeval_query(struct traceeval *teval,
-		    const union traceeval_data *keys,
-		    union traceeval_data * const *results);
+		const union traceeval_data *keys,
+		union traceeval_data * const *results);
 
 /** Field name/descriptor for number of hits */
 #define TRACEEVAL_VAL_HITS ((const char *)(-1UL))
@@ -201,7 +221,7 @@ int traceeval_find_val(struct traceeval *teval, const char *field);
  * allow traceeval to clean up its references.
  */
 void traceeval_results_release(struct traceeval *teval,
-			       const union traceeval_data *results);
+		const union traceeval_data *results);
 
 // Result iterator/histogram dump interfaces
 
@@ -238,7 +258,7 @@ struct traceeval_iterator *traceeval_iterator_get(struct traceeval *teval);
  * Returns 0 on success, -1 or error (including missing a level).
  */
 int traceeval_iterator_sort(struct traceeval_iterator *iter,
-			    const char *sort_field, int level, bool ascending);
+		const char *sort_field, int level, bool ascending);
 
 /**
  * traceeval_iterator_next - Iterate through the data of a traceeval descriptor
@@ -255,7 +275,7 @@ int traceeval_iterator_sort(struct traceeval_iterator *iter,
  * and -1 on error.
  */
 int traceeval_iterator_next(struct traceeval_iterator *iter,
-			    const union traceeval_data **keys);
+		const union traceeval_data **keys);
 
 
 /**
@@ -270,7 +290,7 @@ int traceeval_iterator_next(struct traceeval_iterator *iter,
  * allow traceeval to clean up its references.
  */
 void traceeval_keys_release(struct traceeval_iterator *iter,
-			    const union traceeval_data *keys);
+		const union traceeval_data *keys);
 
 // Statistic extraction
 
@@ -297,7 +317,7 @@ struct traceeval_stat {
  * Returns 0 on success, -1 on error.
  */
 int traceeval_stat(struct traceeval *teval, const union traceeval_data *keys,
-		   const char *field, struct traceeval_stat *stat);
+		const char *field, struct traceeval_stat *stat);
 
 #endif /* __LIBTRACEEVAL_HIST_H__ */
 
