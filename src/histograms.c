@@ -42,9 +42,10 @@ const struct traceeval_type *type_alloc(const struct traceeval_type *defs)
 {
 	struct traceeval_type *new_defs = calloc (1,
 				sizeof(struct traceeval_type));
+
 	char *name;
+	char *check;
 	size_t len_name;
-	size_t check;
 	size_t size = 0;
 
 	if (defs == NULL)
@@ -59,7 +60,7 @@ const struct traceeval_type *type_alloc(const struct traceeval_type *defs)
 		len_name = strlen(defs[size].name) + 1;
 		name = calloc(len_name, sizeof(char));
 		check = strncpy(name, defs[size].name, len_name);
-		if (check != len_name)
+		if (!check)
 			goto fail_type_name;
 
 		new_defs[size].type = defs[size].type;
@@ -70,8 +71,11 @@ const struct traceeval_type *type_alloc(const struct traceeval_type *defs)
 		name = NULL;
 	} while (defs[size++].type != TRACEEVAL_TYPE_NONE);
 
+
 	return new_defs;
 fail_type_name:
+	fprintf(stderr, "failed to allocate name string for index %d into provided traceeval_type array\n",
+			size);
 	for (int i = 0; i < size; i++) {
 		free(new_defs[i].name);
 	}
