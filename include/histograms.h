@@ -80,8 +80,8 @@ struct traceeval;
  *
  * The caller still owns @keys and @vals. The caller is responsible for any
  * necessary clean up of @keys and @vals.
- * If the name field is set for any member of @keys or @vals, the string must
- * be null-terminated.
+ * The name field must be set for any member of @keys or @vals, and it must be
+ * null-terminated.
  * The @keys and @vals defines how the traceeval instance will be populated.
  * The @keys will be used by traceeval_query() to find an instance within
  * the "historgram". Note, both the @keys and @vals array must end with:
