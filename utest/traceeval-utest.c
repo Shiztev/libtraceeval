@@ -4,6 +4,7 @@
  */
 
 #include <string.h>
+#include <stdio.h>
 #include <CUnit/CUnit.h>
 #include <CUnit/Basic.h>
 
@@ -12,7 +13,10 @@
 #define TRACEEVAL_SUITE		"traceeval library"
 
 
-void test_type_alloc_type_none(void)
+/**
+ * Test traceeval_init() and traceeval_release() with NULL values.
+ */
+void test_eval_null()
 {
 	// set up
 	char *name = "test none";
@@ -24,23 +28,29 @@ void test_type_alloc_type_none(void)
 		}
 	};
 
-	// test
-	const struct traceeval_type *result = type_alloc(test_data);
+	// test init
+	struct traceeval *result_null = traceeval_init(NULL, NULL);
+	struct traceeval *result_key = traceeval_init(test_data, NULL);
+	struct traceeval *result_val = traceeval_init(NULL, test_data);
+	
+	// analyze alloc
+	CU_ASSERT(!result_null);
+	CU_ASSERT(!result_key);
+	CU_ASSERT(!result_val);
 
-	// analyze
-	CU_ASSERT(result->type == test_data->type);
-	CU_ASSERT(strcmp(result->name, test_data->name) == 0);
-	CU_ASSERT(result->name != test_data->name);
-	CU_ASSERT(result->flags == test_data->flags);
-	CU_ASSERT(result->dyn_release == test_data->dyn_release);
+	// test release
+	int release_result = traceeval_release(NULL);
+	
+	// analyze release
+	CU_ASSERT(release_result == -1);
 }
 
 /**
- * Tests the type_alloc() and type_release() functions.
+ * Tests the traceeval_init() and traceeval_release() functions.
  */
-void test_type(void)
+void test_eval(void)
 {
-	test_type_alloc_type_none();
+	test_eval_null();
 }
 
 
@@ -59,5 +69,5 @@ void test_traceeval_lib(void)
 	}
 
 	// add tests to suite
-	CU_add_test(suite, "Test traceeval_type alloc and release", test_type);
+	CU_add_test(suite, "Test traceeval alloc and release", test_eval);
 }
