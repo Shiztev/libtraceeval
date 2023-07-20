@@ -34,6 +34,20 @@ enum traceeval_flags {
 };
 
 /**
+ * Trace data entry for a traceeval histogram
+ * Constitutes keys and values.
+ */
+union traceeval_data {
+	char				*string;
+	struct traceeval_dynamic	*dyn_data;
+	unsigned long			number;
+	unsigned char			number_8;
+	unsigned short			number_16;
+	unsigned int			number_32;
+	unsigned long long		number_64;
+};
+
+/**
  * Describes a struct traceeval_data instance
  * Defines expectations for a corresponding traceeval_data instance for a
  * traceeval histogram instance. Used to describe both keys and values.
@@ -52,20 +66,6 @@ struct traceeval_type {
 struct traceeval_dynamic {
 	size_t		size;
 	void		*data;
-};
-
-/**
- * Trace data entry for a traceeval histogram
- * Constitutes keys and values.
- */
-union traceeval_data {
-	const char				*string;
-	const struct traceeval_dynamic		*dyn_data;
-	unsigned long				number;
-	unsigned char				number_8;
-	unsigned short				number_16;
-	unsigned int				number_32;
-	unsigned long long			number_64;
 };
 
 // Histogram interfaces
