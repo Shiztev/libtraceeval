@@ -36,9 +36,12 @@ struct traceeval_iterator {};  // TODO
 /**
  * Return 0 if @orig and @copy are the same, 1 otherwise.
  */
-int compare_traceeval_type(struct traceeval_type *orig,
-		struct traceeval_type *copy)
+int compare_traceeval_type(const struct traceeval_type *orig,
+		const struct traceeval_type *copy)
 {
+	int o_name_null;
+	int c_name_null;
+
 	// same memory/null
 	if (orig == copy)
 		return 0;
@@ -53,6 +56,14 @@ int compare_traceeval_type(struct traceeval_type *orig,
 			return 1;
 		if (orig[i].dyn_cmp != copy[i].dyn_cmp)
 			return 1;
+
+		// make sure both names are same type
+		o_name_null = !orig[i].name;
+		c_name_null = !copy[i].name;
+		if (o_name_null != c_name_null)
+			return 1;
+		if (o_name_null)
+			continue;
 		if (strcmp(orig[i].name, copy[i].name) != 0)
 			return 1;
 	} while (orig[i++].type != TRACEEVAL_TYPE_NONE);
@@ -65,7 +76,7 @@ int compare_traceeval_type(struct traceeval_type *orig,
  * -1 for the other way around, and -2 on error.
  */
 static int compare_traceeval_data(union traceeval_data *orig,
-		union traceeval_data *copy, struct traceeval_type *type)
+		union traceeval_data *copy, const struct traceeval_type *type)
 {
 	if (!orig || !copy)
 		return 1;
@@ -133,7 +144,7 @@ static int compare_traceeval_data(union traceeval_data *orig,
 static int compare_entries(struct entry *orig, struct entry *copy,
 		struct traceeval *eval)
 {
-	struct traceeval_type *type;
+	const struct traceeval_type *type;
 	int i = 0;
 	int check;
 
@@ -202,15 +213,9 @@ static const struct traceeval_type *type_alloc(const struct traceeval_type *defs
 	if (defs == NULL)
 		return NULL;
 
-	struct traceeval_type *new_defs;
+	struct traceeval_type *new_defs = NULL;
 	char *name;
-	char *check;
-	size_t len_name;
 	size_t size = 0;
-
-	new_defs = calloc (1, sizeof(struct traceeval_type));
-	if (!new_defs)
-		goto fail_type_alloc;
 
 	do {
 		// Resize heap defs and clone
@@ -219,34 +224,41 @@ static const struct traceeval_type *type_alloc(const struct traceeval_type *defs
 		if (!new_defs)
 			goto fail_type_alloc;
 
-		// copy null terminated name to heap
-		len_name = strlen(defs[size].name) + 1;
-		name = calloc(len_name, sizeof(char));
-		check = strncpy(name, defs[size].name, len_name);
-		if (!check)
-			goto fail_type_alloc_name;
+		// copy null terminated name to heap if it's not NULL
+		new_defs[size].name = NULL;
+		name = NULL;
+		if (defs[size].name) {
+			name = strdup(defs[size].name);
+			if (!name)
+				goto fail_type_alloc_name;
+			new_defs[size].name = name;
+		}
 
 		new_defs[size].type = defs[size].type;
-		new_defs[size].name = name;
 		new_defs[size].flags = defs[size].flags;
 		new_defs[size].dyn_release = defs[size].dyn_release;
 		new_defs[size].dyn_cmp = defs[size].dyn_cmp;
 
-		name = NULL;
 	} while (defs[size++].type != TRACEEVAL_TYPE_NONE);
-
 
 	return new_defs;
 fail_type_alloc:
-	fprintf(stderr, "failed to allocate memory for traceeval_type %s\n",
-			defs[size].name);
+	if (defs[size].name)
+		fprintf(stderr, "failed to allocate memory for traceeval_type %s\n", defs[size].name);
+	fprintf(stderr, "failed to allocate memory for traceeval_type index %zu\n",
+			size);
+
 	return NULL;
 
 fail_type_alloc_name:
-	fprintf(stderr, "failed to allocate name for traceeval_type %s\n",
-			defs[size].name);
+	if (defs[size].name)
+		fprintf(stderr, "failed to allocate name for traceeval_type %s\n", defs[size].name);
+
+	fprintf(stderr, "failed to allocate name for traceeval_type index %zu\n",
+			size);
 	for (int i = 0; i < size; i++) {
-		free(new_defs[i].name);
+		if (new_defs[i].name)
+			free(new_defs[i].name);
 	}
 	free(new_defs);
 	return NULL;
@@ -267,19 +279,19 @@ struct traceeval *traceeval_init(const struct traceeval_type *keys,
 
 	eval->def_keys = type_alloc(keys);
 	if (!eval->def_keys) {
-		err_msg = "failed to allocate user defined keys\n";
+		err_msg = "failed to allocate user defined keys";
 		goto fail_eval_init;
 	}
 
 	eval->def_vals = type_alloc(vals);
 	if (!eval->def_vals) {
-		err_msg = "failed to allocate user defined values\n";
+		err_msg = "failed to allocate user defined values";
 		goto fail_eval_init;
 	}
 
 	eval->hist = calloc(1, sizeof(struct hist_table));
 	if (!eval->hist) {
-		err_msg = "failed to allocate memory for histogram\n";
+		err_msg = "failed to allocate memory for histogram";
 		goto fail_eval_init;
 	}
 	eval->hist->nr_entries = 0;
@@ -290,7 +302,7 @@ fail_eval_init_alloc:
 	return NULL;
 
 fail_eval_init:
-	fprintf(stderr, err_msg);
+	fprintf(stderr, "%s\n", err_msg);
 	traceeval_release(eval);
 	return NULL;
 }
@@ -311,7 +323,11 @@ static int type_release(struct traceeval_type *defs)
 
 	do {
 		type = defs[i].type;
-		free(defs[i].name);
+		if (defs[i].name) {
+			free(defs[i].name);
+			defs[i].name = NULL;
+		}
+		i++;
 	} while (type != TRACEEVAL_TYPE_NONE);
 
 	free(defs);
@@ -323,7 +339,7 @@ static int type_release(struct traceeval_type *defs)
  *
  * Returns 0 on success, -1 on error.
  */
-static int clean_data(union traceeval_data *data, struct traceeval_type *def)
+static int clean_data(union traceeval_data *data, const struct traceeval_type *def)
 {
 	int result = 0;
 	size_t i = -1;
@@ -334,7 +350,8 @@ static int clean_data(union traceeval_data *data, struct traceeval_type *def)
 	while (def[++i].type != TRACEEVAL_TYPE_NONE) {
 		switch (def[i].type) {
 		case TRACEEVAL_TYPE_STRING:
-			free(data[i].string);
+			if (data[i].string)
+				free(data[i].string);
 			break;
 		case TRACEEVAL_TYPE_DYNAMIC:
 			if (result |= def[i].dyn_release(&data[i])) {
