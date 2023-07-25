@@ -62,10 +62,10 @@ union traceeval_data {
  */
 struct traceeval_type {
 	enum traceeval_data_type	type;
-	const char			*name;
+	char				*name;
 	size_t				flags;
-	int (*dyn_release)(union traceeval_data *);
-	int (*dyn_cmp)(union traceeval_data *, union traceeval_data*);
+	int (*dyn_release)(struct traceeval_dynamic *);
+	int (*dyn_cmp)(struct traceeval_dynamic *, struct traceeval_dynamic *);
 };
 
 /** Storage for atypical data */

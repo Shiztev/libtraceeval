@@ -25,8 +25,8 @@ struct hist_table {
 
 /** Histogram */
 struct traceeval {
-	const struct traceeval_type	*def_keys;
-	const struct traceeval_type	*def_vals;
+	struct traceeval_type		*def_keys;
+	struct traceeval_type		*def_vals;
 	struct hist_table		*hist;
 };
 
@@ -36,8 +36,8 @@ struct traceeval_iterator {};  // TODO
 /**
  * Return 0 if @orig and @copy are the same, 1 otherwise.
  */
-int compare_traceeval_type(const struct traceeval_type *orig,
-		const struct traceeval_type *copy)
+int compare_traceeval_type(struct traceeval_type *orig,
+		struct traceeval_type *copy)
 {
 	int o_name_null;
 	int c_name_null;
@@ -76,7 +76,7 @@ int compare_traceeval_type(const struct traceeval_type *orig,
  * -1 for the other way around, and -2 on error.
  */
 static int compare_traceeval_data(union traceeval_data *orig,
-		union traceeval_data *copy, const struct traceeval_type *type)
+		union traceeval_data *copy, struct traceeval_type *type)
 {
 	if (!orig || !copy)
 		return 1;
@@ -130,7 +130,7 @@ static int compare_traceeval_data(union traceeval_data *orig,
 		return -1;
 
 	case TRACEEVAL_TYPE_DYNAMIC:
-		return type->dyn_cmp(orig, copy);
+		return type->dyn_cmp(orig->dyn_data, copy->dyn_data);
 
 	default:
 		fprintf(stderr, "%d is out of range of enum traceeval_data_type\n", type->type);
@@ -144,7 +144,7 @@ static int compare_traceeval_data(union traceeval_data *orig,
 static int compare_entries(struct entry *orig, struct entry *copy,
 		struct traceeval *eval)
 {
-	const struct traceeval_type *type;
+	struct traceeval_type *type;
 	int i = 0;
 	int check;
 
@@ -208,7 +208,7 @@ int traceeval_compare(struct traceeval *orig, struct traceeval *copy)
  * an instance of type TRACEEVAL_TYPE_NONE.
  * Returns NULL if @defs is NULL, or a name is not null terminated.
  */
-static const struct traceeval_type *type_alloc(const struct traceeval_type *defs)
+static struct traceeval_type *type_alloc(const struct traceeval_type *defs)
 {
 	if (defs == NULL)
 		return NULL;
@@ -339,7 +339,7 @@ static int type_release(struct traceeval_type *defs)
  *
  * Returns 0 on success, -1 on error.
  */
-static int clean_data(union traceeval_data *data, const struct traceeval_type *def)
+static int clean_data(union traceeval_data *data, struct traceeval_type *def)
 {
 	int result = 0;
 	size_t i = -1;
@@ -354,7 +354,7 @@ static int clean_data(union traceeval_data *data, const struct traceeval_type *d
 				free(data[i].string);
 			break;
 		case TRACEEVAL_TYPE_DYNAMIC:
-			if (result |= def[i].dyn_release(&data[i])) {
+			if (result |= def[i].dyn_release(data[i].dyn_data)) {
 				fprintf(stderr, "dyn_release function returned non-zero value for traceeval_data %s\n",
 						def[i].name);
 			}
