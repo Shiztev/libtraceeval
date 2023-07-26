@@ -51,6 +51,15 @@ union traceeval_data {
  * Defines expectations for a corresponding traceeval_data instance for a
  * traceeval histogram instance. Used to describe both keys and values.
  *
+ * The id field is an optional value in case the user has multiple struct
+ * traceeval_type instances with type fields set to TRACEEVAL_TYPE_DYNAMIC,
+ * which each relate to distinct user defined struct traceeval_dynamic
+ * 'sub-types'.
+ * For flexibility, dyn_cmp() and dyn_release() take a struct traceeval_type
+ * instance. This allows the user to distingush between different sub-types of
+ * struct traceeeval_dynamic within a single callback function by examining the
+ * id field. This is not a required approach, merely one that is accomodated.
+ *
  * dyn_cmp() is used to compare two struct traceeval_dynamic instances when a
  * corresponding struct traceeval_type is reached with its type field set to
  * TRACEEVAL_TYPE_DYNAMIC. It should return 0 on equality, 1 if the first
@@ -66,8 +75,10 @@ struct traceeval_type {
 	enum traceeval_data_type	type;
 	char				*name;
 	size_t				flags;
-	int (*dyn_release)(struct traceeval_dynamic *);
-	int (*dyn_cmp)(struct traceeval_dynamic *, struct traceeval_dynamic *);
+	size_t				id;
+	int (*dyn_release)(struct traceeval_dynamic *, struct traceeval_type *);
+	int (*dyn_cmp)(struct traceeval_dynamic *, struct traceeval_dynamic *,
+			struct traceeval_type *);
 };
 
 /** Storage for atypical data */

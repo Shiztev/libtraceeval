@@ -52,6 +52,8 @@ int compare_traceeval_type(struct traceeval_type *orig,
 			return 1;
 		if (orig[i].flags != copy[i].flags)
 			return 1;
+		if (orig[i].id != copy[i].id)
+			return 1;
 		if (orig[i].dyn_release != copy[i].dyn_release)
 			return 1;
 		if (orig[i].dyn_cmp != copy[i].dyn_cmp)
@@ -130,7 +132,7 @@ static int compare_traceeval_data(union traceeval_data *orig,
 		return -1;
 
 	case TRACEEVAL_TYPE_DYNAMIC:
-		return type->dyn_cmp(orig->dyn_data, copy->dyn_data);
+		return type->dyn_cmp(orig->dyn_data, copy->dyn_data, type);
 
 	default:
 		fprintf(stderr, "%d is out of range of enum traceeval_data_type\n", type->type);
@@ -381,7 +383,8 @@ static int clean_data(union traceeval_data *data, struct traceeval_type *def)
 				free(data[i].string);
 			break;
 		case TRACEEVAL_TYPE_DYNAMIC:
-			if (result |= def[i].dyn_release(data[i].dyn_data)) {
+			if (result |= def[i].dyn_release(data[i].dyn_data,
+						&def[i])) {
 				fprintf(stderr, "dyn_release function returned non-zero value for traceeval_data %s\n",
 						def[i].name);
 			}
