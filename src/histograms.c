@@ -213,35 +213,41 @@ int traceeval_compare(struct traceeval *orig, struct traceeval *copy)
  */
 static struct traceeval_type *type_alloc(const struct traceeval_type *defs)
 {
-	if (defs == NULL)
-		return NULL;
-
 	struct traceeval_type *new_defs = NULL;
+	struct traceeval_type *tmp_defs = NULL;
 	char *name;
 	size_t size = 0;
 
+	// Empty def is represented with single TRACEEVAL_TYPE_NONE
+	if (defs == NULL) {
+		if (!(new_defs = calloc(1, sizeof(struct traceeval_type))))
+			goto fail_type_alloc;
+		new_defs->type = TRACEEVAL_TYPE_NONE;
+		return new_defs;
+	}
+
 	do {
 		// Resize heap defs and clone
-		new_defs = realloc(new_defs,
+		tmp_defs = realloc(new_defs,
 				(size + 1) * sizeof(struct traceeval_type));
-		if (!new_defs)
+		if (!tmp_defs)
 			goto fail_type_alloc;
+		new_defs = tmp_defs;
 
-		// copy null terminated name to heap if it's not NULL
+		// copy current def data to new_def
+		new_defs[size] = defs[size];
 		new_defs[size].name = NULL;
-		name = NULL;
-		if (defs[size].name) {
+		// copy name to heap if it's not NULL or type NONE
+		if (defs[size].type != TRACEEVAL_TYPE_NONE) {
+			name = NULL;
+			if (!defs[size].name)
+				goto fail_type_alloc_name;
+
 			name = strdup(defs[size].name);
 			if (!name)
 				goto fail_type_alloc_name;
 			new_defs[size].name = name;
 		}
-
-		new_defs[size].type = defs[size].type;
-		new_defs[size].flags = defs[size].flags;
-		new_defs[size].dyn_release = defs[size].dyn_release;
-		new_defs[size].dyn_cmp = defs[size].dyn_cmp;
-
 	} while (defs[size++].type != TRACEEVAL_TYPE_NONE);
 
 	return new_defs;
@@ -275,8 +281,11 @@ struct traceeval *traceeval_init(const struct traceeval_type *keys,
 {
 	struct traceeval *eval;
 	char *err_msg;
+	struct traceeval_type type = {
+		.type = TRACEEVAL_TYPE_NONE
+	};
 
-	if ((!keys) || (!vals))
+	if (!keys)
 		return NULL;
 
 	if (keys->type == TRACEEVAL_TYPE_NONE) {
@@ -296,11 +305,17 @@ struct traceeval *traceeval_init(const struct traceeval_type *keys,
 		goto fail_eval_init;
 	}
 
-	eval->def_vals = type_alloc(vals);
+	// if vals is NULL, alloc single type NONE
+	if (vals)
+		eval->def_vals = type_alloc(vals);
+	else
+		eval->def_vals = type_alloc(&type);
+
 	if (!eval->def_vals) {
 		err_msg = "failed to allocate user defined values";
 		goto fail_eval_init;
 	}
+
 
 	eval->hist = calloc(1, sizeof(struct hist_table));
 	if (!eval->hist) {
