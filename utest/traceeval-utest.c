@@ -13,6 +13,7 @@
 
 #define TRACEEVAL_SUITE		"traceeval library"
 #define TRACEEVAL_SUCCESS	0
+#define TRACEEVAL_FAILURE	-1
 #define TRACEEVAL_NOT_SAME	1
 
 
@@ -101,16 +102,33 @@ void test_eval_none(void)
 {
 	// set up
 	char *name = "test none";
-	enum traceeval_data_type type = TRACEEVAL_TYPE_NONE;
-	const struct traceeval_type test_data[] =  {
+	char *name2 = "test none (some)";
+	const struct traceeval_type test_data_none[] =  {
 		{
-			.type = type,
+			.type = TRACEEVAL_TYPE_NONE,
 			.name = name
 		}
 	};
-	test_eval_base(test_data, test_data, test_data, test_data, true, true,
-			TRACEEVAL_SUCCESS, TRACEEVAL_SUCCESS,
-			TRACEEVAL_SUCCESS);
+	const struct traceeval_type test_data_some[] =  {
+		{
+			.type = TRACEEVAL_TYPE_NUMBER,
+			.name = name2
+		},
+		{
+			.type = TRACEEVAL_TYPE_NONE,
+			.name = NULL
+		}
+	};
+
+	test_eval_base(test_data_some, test_data_none, test_data_some,
+			test_data_none, true, true, TRACEEVAL_SUCCESS,
+			TRACEEVAL_SUCCESS, TRACEEVAL_SUCCESS);
+	test_eval_base(test_data_none, test_data_none, test_data_some,
+			test_data_none, false, true, TRACEEVAL_FAILURE,
+			TRACEEVAL_FAILURE, TRACEEVAL_SUCCESS);
+	test_eval_base(test_data_none, test_data_none, test_data_none,
+			test_data_none, false, false, TRACEEVAL_FAILURE,
+			TRACEEVAL_FAILURE, TRACEEVAL_FAILURE);
 }
 
 /**

@@ -90,10 +90,15 @@ struct traceeval;
  * necessary clean up of @keys and @vals.
  * The name field must be set for any member of @keys or @vals as either a
  * null-terminated string or NULL.
- * The @keys and @vals defines how the traceeval instance will be populated.
+ * The @keys and @vals define how the traceeval instance will be populated.
  * The @keys will be used by traceeval_query() to find an instance within
  * the "historgram". Note, both the @keys and @vals array must end with:
  * { .type = TRACEEVAL_TYPE_NONE }.
+ *
+ * @vals can start with its type field as TRACEEVAL_TYPE_NONE to define the
+ * values of the histogram to be empty. If @keys starts with
+ * { .type = TRACEEVAL_TYPE_NONE }, it is treated as an error to ensure the
+ * histogram is valid.
  *
  * Retruns the descriptor on success, or NULL on error.
  */

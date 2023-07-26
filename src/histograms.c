@@ -192,10 +192,13 @@ static int compare_hist(struct traceeval *orig, struct traceeval *copy)
 }
 
 /**
- * Return 0 if @orig and @copy are the same, 1 otherwise.
+ * Return 0 if @orig and @copy are the same, 1 if not, -1 if error.
  */
 int traceeval_compare(struct traceeval *orig, struct traceeval *copy)
 {
+	if ((!orig) || (!copy))
+		return -1;
+
 	int keys = compare_traceeval_type(orig->def_keys, copy->def_keys);
 	int vals = compare_traceeval_type(orig->def_vals, copy->def_vals);
 	int hists = compare_hist(orig, copy);
@@ -273,9 +276,19 @@ struct traceeval *traceeval_init(const struct traceeval_type *keys,
 	struct traceeval *eval;
 	char *err_msg;
 
+	if ((!keys) || (!vals))
+		return NULL;
+
+	if (keys->type == TRACEEVAL_TYPE_NONE) {
+		err_msg = "keys cannot start with type TRACEEVAL_TYPE_NONE";
+		goto fail_eval_init_unalloced;
+	}
+
 	eval = calloc(1, sizeof(struct traceeval));
-	if (!eval)
-		goto fail_eval_init_alloc;
+	if (!eval) {
+		err_msg = "failed to allocate memory for traceeval instance";
+		goto fail_eval_init_unalloced;
+	}
 
 	eval->def_keys = type_alloc(keys);
 	if (!eval->def_keys) {
@@ -297,13 +310,12 @@ struct traceeval *traceeval_init(const struct traceeval_type *keys,
 	eval->hist->nr_entries = 0;
 
 	return eval;
-fail_eval_init_alloc:
-	fprintf(stderr, "failed to allocate memory for traceeval instance\n");
-	return NULL;
-
 fail_eval_init:
-	fprintf(stderr, "%s\n", err_msg);
 	traceeval_release(eval);
+	/* fall-through */
+
+fail_eval_init_unalloced:
+	fprintf(stderr, "%s\n", err_msg);
 	return NULL;
 }
 
