@@ -12,6 +12,13 @@
 #include <string.h>
 #include <stdarg.h>
 
+#define compare_numbers_return(a, b)	\
+do {					\
+	if ((a) < (b))			\
+		return -1;		\
+	return (a) != (b);		\
+} while (0)				\
+
 /** A key-value pair */
 struct entry {
 	union traceeval_data	*keys;
@@ -112,39 +119,19 @@ static int compare_traceeval_data(union traceeval_data *orig,
 		return -1;
 
 	case TRACEEVAL_TYPE_NUMBER:
-		if (orig->number == copy->number)
-			return 0;
-		if (orig->number > copy->number)
-			return 1;
-		return -1;
+		compare_numbers_return(orig->number, copy->number);
 
 	case TRACEEVAL_TYPE_NUMBER_64:
-		if (orig->number_64 == copy->number_64)
-			return 0;
-		if (orig->number_64 > copy->number_64)
-			return 1;
-		return -1;
+		compare_numbers_return(orig->number_64, copy->number_64);
 
 	case TRACEEVAL_TYPE_NUMBER_32:
-		if (orig->number_32 == copy->number_32)
-			return 0;
-		if (orig->number_32 > copy->number_32)
-			return 1;
-		return -1;
+		compare_numbers_return(orig->number_32, copy->number_32);
 
 	case TRACEEVAL_TYPE_NUMBER_16:
-		if (orig->number_16 == copy->number_16)
-			return 0;
-		if (orig->number_16 > copy->number_16)
-			return 1;
-		return -1;
+		compare_numbers_return(orig->number_16, copy->number_16);
 
 	case TRACEEVAL_TYPE_NUMBER_8:
-		if (orig->number_8 == copy->number_8)
-			return 0;
-		if (orig->number_8 > copy->number_8)
-			return 1;
-		return -1;
+		compare_numbers_return(orig->number_8, copy->number_8);
 
 	case TRACEEVAL_TYPE_DYNAMIC:
 		return type->dyn_cmp(orig->dyn_data, copy->dyn_data, type);
