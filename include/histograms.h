@@ -51,14 +51,16 @@ union traceeval_data {
  * Defines expectations for a corresponding traceeval_data instance for a
  * traceeval histogram instance. Used to describe both keys and values.
  *
- * dyn_cmp() is used to compare two union traceeval_data instances when the
- * corresponding struct traceeval_type type field is set to
- * TRACEEVAL_TYPE_DYNAMIC. It should return 0 on equality,1 if the first
- * argument is greater than the second, -1 for the otherway around, and -2 on error.
+ * dyn_cmp() is used to compare two struct traceeval_dynamic instances when a
+ * corresponding struct traceeval_type is reached with its type field set to
+ * TRACEEVAL_TYPE_DYNAMIC. It should return 0 on equality, 1 if the first
+ * argument is greater than the second, -1 for the otherway around, and -2 on
+ * error.
  *
- * dyn_release() is used during traceeval_release() to release traceeval_data
- * when the corresponding traceeval_type type is set to TRACEEVAL_TYPE_DYNAMIC.
- * It should return 0 for success and -1 otherwise.
+ * dyn_release() is used during traceeval_release() to release a union
+ * traceeval_data's struct traceeval_dynamic field when the corresponding
+ * traceeval_type type is set to TRACEEVAL_TYPE_DYNAMIC. It should return 0 for
+ * success and -1 otherwise.
  */
 struct traceeval_type {
 	enum traceeval_data_type	type;
