@@ -10,6 +10,7 @@
 #include <stdio.h>
 #include <stdbool.h>
 #include <string.h>
+#include <stdarg.h>
 
 /** A key-value pair */
 struct entry {
@@ -32,6 +33,20 @@ struct traceeval {
 
 /** Iterate over results of histogram */
 struct traceeval_iterator {};  // TODO
+
+/**
+ * Print error message.
+ * Additional arguments are used with respect to fmt.
+ */
+void print_err(const char *fmt, ...)
+{
+	va_list ap;
+
+	va_start(ap, fmt);
+	vfprintf(stderr, fmt, ap);
+	va_end(ap);
+	fprintf(stderr, "\n");
+}
 
 /**
  * Return 0 if @orig and @copy are the same, 1 otherwise.
@@ -135,7 +150,7 @@ static int compare_traceeval_data(union traceeval_data *orig,
 		return type->dyn_cmp(orig->dyn_data, copy->dyn_data, type);
 
 	default:
-		fprintf(stderr, "%d is out of range of enum traceeval_data_type\n", type->type);
+		print_err("%d is out of range of enum traceeval_data_type", type->type);
 		return -2;
 	}
 }
@@ -255,18 +270,16 @@ static struct traceeval_type *type_alloc(const struct traceeval_type *defs)
 	return new_defs;
 fail_type_alloc:
 	if (defs[size].name)
-		fprintf(stderr, "failed to allocate memory for traceeval_type %s\n", defs[size].name);
-	fprintf(stderr, "failed to allocate memory for traceeval_type index %zu\n",
-			size);
+		print_err("failed to allocate memory for traceeval_type %s", defs[size].name);
+	print_err("failed to allocate memory for traceeval_type index %zu", size);
 
 	return NULL;
 
 fail_type_alloc_name:
 	if (defs[size].name)
-		fprintf(stderr, "failed to allocate name for traceeval_type %s\n", defs[size].name);
+		print_err("failed to allocate name for traceeval_type %s", defs[size].name);
 
-	fprintf(stderr, "failed to allocate name for traceeval_type index %zu\n",
-			size);
+	print_err("failed to allocate name for traceeval_type index %zu", size);
 	for (int i = 0; i < size; i++) {
 		if (new_defs[i].name)
 			free(new_defs[i].name);
@@ -332,7 +345,7 @@ fail_eval_init:
 	/* fall-through */
 
 fail_eval_init_unalloced:
-	fprintf(stderr, "%s\n", err_msg);
+	print_err(err_msg);
 	return NULL;
 }
 
