@@ -36,7 +36,7 @@ struct traceeval_iterator {};  // TODO
 /**
  * Return 0 if @orig and @copy are the same, 1 otherwise.
  */
-int compare_traceeval_type(struct traceeval_type *orig,
+static int compare_traceeval_type(struct traceeval_type *orig,
 		struct traceeval_type *copy)
 {
 	int o_name_null;
@@ -339,42 +339,33 @@ fail_eval_init_unalloced:
 /**
  * Deallocate array of traceeval_type's, which must be terminated by
  * TRACEEVAL_TYPE_NONE.
- *
- * Returns 0 on success, -1 if @defs is NULL.
  */
-static int type_release(struct traceeval_type *defs)
+static void type_release(struct traceeval_type *defs)
 {
 	enum traceeval_data_type type;
 	size_t i = 0;
 
 	if (!defs)
-		return -1;
+		return;
 
 	do {
 		type = defs[i].type;
-		if (defs[i].name) {
+		if (defs[i].name)
 			free(defs[i].name);
-			defs[i].name = NULL;
-		}
 		i++;
 	} while (type != TRACEEVAL_TYPE_NONE);
-
 	free(defs);
-	return 0;
 }
 
 /**
  * Deallocate any specified dynamic data in @data.
- *
- * Returns 0 on success, -1 on error.
  */
-static int clean_data(union traceeval_data *data, struct traceeval_type *def)
+static void clean_data(union traceeval_data *data, struct traceeval_type *def)
 {
-	int result = 0;
 	size_t i = -1;
 
 	if (!data || !def)
-		goto fail_clean_data;
+		return;
 	
 	while (def[++i].type != TRACEEVAL_TYPE_NONE) {
 		switch (def[i].type) {
@@ -383,95 +374,57 @@ static int clean_data(union traceeval_data *data, struct traceeval_type *def)
 				free(data[i].string);
 			break;
 		case TRACEEVAL_TYPE_DYNAMIC:
-			if (result |= def[i].dyn_release(data[i].dyn_data,
-						&def[i])) {
-				fprintf(stderr, "dyn_release function returned non-zero value for traceeval_data %s\n",
-						def[i].name);
-			}
+			def[i].dyn_release(data[i].dyn_data, &def[i]);
 			break;
 		default:
 			break;
 		}
 	}
-
-	if (result)
-		return -1;
-	return 0;
-fail_clean_data:
-	fprintf(stderr, "null pointer received for traceeval_data or traceeval_type\n");
-	return -1;
 }
 
 /**
  * Deallocate all possible data stored within the entry.
- *
- * Returns 0 on success, -1 on error.
  */
-static int clean_entry(struct entry *entry, struct traceeval *eval)
+static void clean_entry(struct entry *entry, struct traceeval *eval)
 {
-	int keys = 0;
-	int vals = 0;
-
 	if (!entry)
-		return -1;
+		return;
 
 	// deallocate dynamic traceeval_data
-	if ((keys = clean_data(entry->keys, eval->def_keys)))
-		fprintf(stderr, "unable to deallocate data within an entries keys\n");
-	if ((vals = clean_data(entry->vals, eval->def_vals)))
-		fprintf(stderr, "unable to deallocate data within an entries vals\n");
+	clean_data(entry->keys, eval->def_keys);
+	clean_data(entry->vals, eval->def_vals);
 	free(entry->keys);
 	free(entry->vals);
-
-	if (keys || vals)
-		return -1;
-	return 0;
 }
 
 /**
  * Deallocate the hist_table allocated to a traceeval instance.
- *
- * Returns 0 on success, -1 on error.
  */
-static int hist_table_release(struct traceeval *eval)
+static void hist_table_release(struct traceeval *eval)
 {
-	int result = 0;
 	struct hist_table *hist = eval->hist;
 
 	if (!hist)
-		return -1;
+		return;
 
 	for (size_t i = 0; i < hist->nr_entries; i++) {
-		result |= clean_entry(&hist->map[i], eval);
+		clean_entry(&hist->map[i], eval);
 	}
 	free(hist->map);
 	free(hist);
-
-	if (result)
-		return -1;
-	return 0;
 }
 
 /**
  * Deallocate a traceeval instance.
- *
- * Returns 0 on success, -1 on error.
  */
-int traceeval_release(struct traceeval *eval)
+void traceeval_release(struct traceeval *eval)
 {
-	int result = 0;
-
-	if (!eval)
-		return -1;
-
-	result |= hist_table_release(eval);
-	result |= type_release(eval->def_keys);
-	result |= type_release(eval->def_vals);
-	free(eval);
-
-	if (result)
-		return -1;
-	return 0;
+	if (eval) {
+		hist_table_release(eval);
+		type_release(eval->def_keys);
+		type_release(eval->def_vals);
+		free(eval);
+	}
 }
 
 // TODO

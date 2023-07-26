@@ -28,8 +28,12 @@ void test_eval_null(void)
 	enum traceeval_data_type type = TRACEEVAL_TYPE_NONE;
 	const struct traceeval_type test_data[] =  {
 		{
-			.type = type,
+			.type = TRACEEVAL_TYPE_NUMBER,
 			.name = name
+		},
+		{
+			.type = type,
+			.name = NULL
 		}
 	};
 
@@ -40,14 +44,12 @@ void test_eval_null(void)
 	
 	// analyze init
 	CU_ASSERT(!result_null);
-	CU_ASSERT(!result_key);
+	CU_ASSERT(result_key != NULL);
 	CU_ASSERT(!result_val);
 
-	// test release
-	int release_result = traceeval_release(NULL);
-	
-	// analyze release
-	CU_ASSERT(release_result == -1);
+	// release
+	traceeval_release(NULL);
+	traceeval_release(result_key);
 }
 
 /**
@@ -59,7 +61,7 @@ void test_eval_base(const struct traceeval_type *keys1,
 		const struct traceeval_type *keys2,
 		const struct traceeval_type *vals2,
 		bool init_not_null1, bool init_not_null2,
-		int compare_result, int release_result1, int release_result2)
+		int compare_result)
 {
 	struct traceeval *init1;
 	struct traceeval *init2;
@@ -89,9 +91,9 @@ void test_eval_base(const struct traceeval_type *keys1,
 	// analyze compare
 	CU_ASSERT(result == compare_result);
 	
-	// test and analyze release
-	CU_ASSERT(traceeval_release(init1) == release_result1);
-	CU_ASSERT(traceeval_release(init2) == release_result2);
+	// release
+	traceeval_release(init1);
+	traceeval_release(init2);
 }
 
 /**
@@ -121,14 +123,11 @@ void test_eval_none(void)
 	};
 
 	test_eval_base(test_data_some, test_data_none, test_data_some,
-			test_data_none, true, true, TRACEEVAL_SUCCESS,
-			TRACEEVAL_SUCCESS, TRACEEVAL_SUCCESS);
+			test_data_none, true, true, TRACEEVAL_SUCCESS);
 	test_eval_base(test_data_none, test_data_none, test_data_some,
-			test_data_none, false, true, TRACEEVAL_FAILURE,
-			TRACEEVAL_FAILURE, TRACEEVAL_SUCCESS);
+			test_data_none, false, true, TRACEEVAL_FAILURE);
 	test_eval_base(test_data_none, test_data_none, test_data_none,
-			test_data_none, false, false, TRACEEVAL_FAILURE,
-			TRACEEVAL_FAILURE, TRACEEVAL_FAILURE);
+			test_data_none, false, false, TRACEEVAL_FAILURE);
 }
 
 /**
@@ -151,7 +150,6 @@ void test_eval_same(void)
 	};
 	
 	test_eval_base(test_data, test_data, test_data, test_data, true, true,
-			TRACEEVAL_SUCCESS, TRACEEVAL_SUCCESS,
 			TRACEEVAL_SUCCESS);
 }
 
@@ -183,20 +181,16 @@ void test_eval_not_same(void)
 
 	// type 1 key diff
 	test_eval_base(test_data2, test_data1, test_data1, test_data1, true,
-			true, TRACEEVAL_NOT_SAME, TRACEEVAL_SUCCESS,
-			TRACEEVAL_SUCCESS);
+			true, TRACEEVAL_NOT_SAME);
 	// type 1 data diff
 	test_eval_base(test_data1, test_data2, test_data1, test_data1, true,
-			true, TRACEEVAL_NOT_SAME, TRACEEVAL_SUCCESS,
-			TRACEEVAL_SUCCESS);
+			true, TRACEEVAL_NOT_SAME);
 	// type 2 key diff
 	test_eval_base(test_data1, test_data1, test_data2, test_data1, true,
-			true, TRACEEVAL_NOT_SAME, TRACEEVAL_SUCCESS,
-			TRACEEVAL_SUCCESS);
+			true, TRACEEVAL_NOT_SAME);
 	// type 2 data diff
 	test_eval_base(test_data1, test_data1, test_data1, test_data2, true,
-			true, TRACEEVAL_NOT_SAME, TRACEEVAL_SUCCESS,
-			TRACEEVAL_SUCCESS);
+			true, TRACEEVAL_NOT_SAME);
 }
 
 /**

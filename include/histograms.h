@@ -68,15 +68,14 @@ union traceeval_data {
  *
  * dyn_release() is used during traceeval_release() to release a union
  * traceeval_data's struct traceeval_dynamic field when the corresponding
- * traceeval_type type is set to TRACEEVAL_TYPE_DYNAMIC. It should return 0 for
- * success and -1 otherwise.
+ * traceeval_type type is set to TRACEEVAL_TYPE_DYNAMIC.
  */
 struct traceeval_type {
 	enum traceeval_data_type	type;
 	char				*name;
 	size_t				flags;
 	size_t				id;
-	int (*dyn_release)(struct traceeval_dynamic *, struct traceeval_type *);
+	void (*dyn_release)(struct traceeval_dynamic *, struct traceeval_type *);
 	int (*dyn_cmp)(struct traceeval_dynamic *, struct traceeval_dynamic *,
 			struct traceeval_type *);
 };
@@ -124,11 +123,10 @@ struct traceeval *traceeval_init(const struct traceeval_type *keys,
  * When the caller of traceeval_init() is done with the returned @eval,
  * it must call traceeval_release().
  * This does not release any dynamically allocated data inserted by
- * the user.
- *
- * Returns 0 on success, -1 on error.
+ * the user, although it will call any dyn_release() functions provided by
+ * the user from traceeval_init().
  */
-int traceeval_release(struct traceeval *eval);
+void traceeval_release(struct traceeval *eval);
 
 /**
  * traceeval_insert - Insert an item into the traceeval descriptor
