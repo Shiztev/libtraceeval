@@ -100,7 +100,7 @@ static int compare_traceeval_type(struct traceeval_type *orig,
  * -1 for the other way around, and -2 on error.
  */
 static int compare_traceeval_data(union traceeval_data *orig,
-		union traceeval_data *copy, struct traceeval_type *type)
+		const union traceeval_data *copy, struct traceeval_type *type)
 {
 	if (!orig || !copy)
 		return 1;
@@ -143,37 +143,48 @@ static int compare_traceeval_data(union traceeval_data *orig,
 }
 
 /**
+ * Compare arrays fo union traceeval_data's with respect to @def.
+ *
+ * Return 0 if @orig and @copy are the same, 1 if not, and -1 on error.
+ */
+static int compare_traceeval_data_set(union traceeval_data *orig,
+		const union traceeval_data *copy, struct traceeval_type *def)
+{
+	int i = 0;
+	int check;
+
+	// compare data arrays
+	while (def[i].type != TRACEEVAL_TYPE_NONE) {
+		if ((check = compare_traceeval_data(&orig[i], &copy[i], &def[i])))
+			goto fail_compare_data_set;
+		i++;
+	}
+
+	return 0;
+fail_compare_data_set:
+	if (check == -2)
+		return -1;
+	return 1;
+}
+
+/**
  * Return 0 if @orig and @copy are the same, 1 if not, and -1 on error.
  */
 static int compare_entries(struct entry *orig, struct entry *copy,
 		struct traceeval *teval)
 {
-	struct traceeval_type *type;
-	int i = 0;
 	int check;
 
 	// compare keys
-	do {
-		type = &teval->def_keys[i];
-		if ((check = compare_traceeval_data(&orig->keys[i], &copy->keys[i], type)))
-			goto entries_not_equal;
-		i++;
-	} while (type->type != TRACEEVAL_TYPE_NONE);
+	check = compare_traceeval_data_set(orig->keys, copy->keys,
+			teval->def_keys);
+	if (check)
+		return check;
 
 	// compare values
-	i = 0;
-	do {
-		type = &teval->def_vals[i];
-		if ((check = compare_traceeval_data(&orig->vals[i], &copy->vals[i], type)))
-			goto entries_not_equal;
-		i++;
-	} while (type->type != TRACEEVAL_TYPE_NONE);
-
-	return 0;
-entries_not_equal:
-	if (check == -2)
-		return -1;
-	return 1;
+	check = compare_traceeval_data_set(orig->vals, copy->vals,
+			teval->def_vals);
+	return check;
 }
 
 /**
