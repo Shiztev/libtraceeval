@@ -118,15 +118,15 @@ struct traceeval *traceeval_init(const struct traceeval_type *keys,
 
 /**
  * traceeval_release - release a traceeval descriptor
- * @eval: An instance of traceeval returned by traceeval_init()
+ * @teval: An instance of traceeval returned by traceeval_init()
  *
- * When the caller of traceeval_init() is done with the returned @eval,
+ * When the caller of traceeval_init() is done with the returned @teval,
  * it must call traceeval_release().
  * This does not release any dynamically allocated data inserted by
  * the user, although it will call any dyn_release() functions provided by
  * the user from traceeval_init().
  */
-void traceeval_release(struct traceeval *eval);
+void traceeval_release(struct traceeval *teval);
 
 /**
  * traceeval_insert - Insert an item into the traceeval descriptor

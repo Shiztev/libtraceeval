@@ -146,7 +146,7 @@ static int compare_traceeval_data(union traceeval_data *orig,
  * Return 0 if @orig and @copy are the same, 1 if not, and -1 on error.
  */
 static int compare_entries(struct entry *orig, struct entry *copy,
-		struct traceeval *eval)
+		struct traceeval *teval)
 {
 	struct traceeval_type *type;
 	int i = 0;
@@ -154,7 +154,7 @@ static int compare_entries(struct entry *orig, struct entry *copy,
 
 	// compare keys
 	do {
-		type = &eval->def_keys[i];
+		type = &teval->def_keys[i];
 		if ((check = compare_traceeval_data(&orig->keys[i], &copy->keys[i], type)))
 			goto entries_not_equal;
 		i++;
@@ -163,7 +163,7 @@ static int compare_entries(struct entry *orig, struct entry *copy,
 	// compare values
 	i = 0;
 	do {
-		type = &eval->def_vals[i];
+		type = &teval->def_vals[i];
 		if ((check = compare_traceeval_data(&orig->vals[i], &copy->vals[i], type)))
 			goto entries_not_equal;
 		i++;
@@ -281,7 +281,7 @@ fail_type_alloc_name:
 struct traceeval *traceeval_init(const struct traceeval_type *keys,
 				 const struct traceeval_type *vals)
 {
-	struct traceeval *eval;
+	struct traceeval *teval;
 	char *err_msg;
 	struct traceeval_type type = {
 		.type = TRACEEVAL_TYPE_NONE
@@ -295,40 +295,40 @@ struct traceeval *traceeval_init(const struct traceeval_type *keys,
 		goto fail_eval_init_unalloced;
 	}
 
-	eval = calloc(1, sizeof(struct traceeval));
-	if (!eval) {
+	teval = calloc(1, sizeof(struct traceeval));
+	if (!teval) {
 		err_msg = "failed to allocate memory for traceeval instance";
 		goto fail_eval_init_unalloced;
 	}
 
-	eval->def_keys = type_alloc(keys);
-	if (!eval->def_keys) {
+	teval->def_keys = type_alloc(keys);
+	if (!teval->def_keys) {
 		err_msg = "failed to allocate user defined keys";
 		goto fail_eval_init;
 	}
 
 	// if vals is NULL, alloc single type NONE
 	if (vals)
-		eval->def_vals = type_alloc(vals);
+		teval->def_vals = type_alloc(vals);
 	else
-		eval->def_vals = type_alloc(&type);
+		teval->def_vals = type_alloc(&type);
 
-	if (!eval->def_vals) {
+	if (!teval->def_vals) {
 		err_msg = "failed to allocate user defined values";
 		goto fail_eval_init;
 	}
 
 
-	eval->hist = calloc(1, sizeof(struct hist_table));
-	if (!eval->hist) {
+	teval->hist = calloc(1, sizeof(struct hist_table));
+	if (!teval->hist) {
 		err_msg = "failed to allocate memory for histogram";
 		goto fail_eval_init;
 	}
-	eval->hist->nr_entries = 0;
+	teval->hist->nr_entries = 0;
 
-	return eval;
+	return teval;
 fail_eval_init:
-	traceeval_release(eval);
+	traceeval_release(teval);
 	/* fall-through */
 
 fail_eval_init_unalloced:
@@ -385,14 +385,14 @@ static void clean_data(union traceeval_data *data, struct traceeval_type *def)
 /**
  * Deallocate all possible data stored within the entry.
  */
-static void clean_entry(struct entry *entry, struct traceeval *eval)
+static void clean_entry(struct entry *entry, struct traceeval *teval)
 {
 	if (!entry)
 		return;
 
 	// deallocate dynamic traceeval_data
-	clean_data(entry->keys, eval->def_keys);
-	clean_data(entry->vals, eval->def_vals);
+	clean_data(entry->keys, teval->def_keys);
+	clean_data(entry->vals, teval->def_vals);
 	free(entry->keys);
 	free(entry->vals);
 }
@@ -400,15 +400,15 @@ static void clean_entry(struct entry *entry, struct traceeval *eval)
 /**
  * Deallocate the hist_table allocated to a traceeval instance.
  */
-static void hist_table_release(struct traceeval *eval)
+static void hist_table_release(struct traceeval *teval)
 {
-	struct hist_table *hist = eval->hist;
+	struct hist_table *hist = teval->hist;
 
 	if (!hist)
 		return;
 
 	for (size_t i = 0; i < hist->nr_entries; i++) {
-		clean_entry(&hist->map[i], eval);
+		clean_entry(&hist->map[i], teval);
 	}
 	free(hist->map);
 	free(hist);
@@ -417,13 +417,13 @@ static void hist_table_release(struct traceeval *eval)
 /**
  * Deallocate a traceeval instance.
  */
-void traceeval_release(struct traceeval *eval)
+void traceeval_release(struct traceeval *teval)
 {
-	if (eval) {
-		hist_table_release(eval);
-		type_release(eval->def_keys);
-		type_release(eval->def_vals);
-		free(eval);
+	if (teval) {
+		hist_table_release(teval);
+		type_release(teval->def_keys);
+		type_release(teval->def_vals);
+		free(teval);
 	}
 }
 
