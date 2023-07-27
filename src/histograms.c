@@ -12,6 +12,20 @@
 #include <string.h>
 #include <stdarg.h>
 
+/**
+ * Iterate over @keys, which should be an array of struct traceeval_type's,
+ * until reaching an instance of type TRACEEVAL_TYPE_NONE.
+ * @i should be a declared integer type.
+ */
+#define for_each_key(i, keys)	\
+	for (i = 0; (keys)[(i)].type != TRACEEVAL_TYPE_NONE; (i)++)
+
+/**
+ * Compare two integers of variable length.
+ *
+ * Return 0 if @a and @b are the same, 1 if @a is greater than @b, and -1
+ * if @b is greater than @a.
+ */
 #define compare_numbers_return(a, b)	\
 do {					\
 	if ((a) < (b))			\
@@ -72,6 +86,8 @@ static int compare_traceeval_type(struct traceeval_type *orig,
 	do {
 		if (orig[i].type != copy[i].type)
 			return 1;
+		if (orig[i].type == TRACEEVAL_TYPE_NONE)
+			return 0;
 		if (orig[i].flags != copy[i].flags)
 			return 1;
 		if (orig[i].id != copy[i].id)
@@ -154,10 +170,9 @@ static int compare_traceeval_data_set(union traceeval_data *orig,
 	int check;
 
 	// compare data arrays
-	while (def[i].type != TRACEEVAL_TYPE_NONE) {
+	for_each_key(i, def) {
 		if ((check = compare_traceeval_data(&orig[i], &copy[i], &def[i])))
 			goto fail_compare_data_set;
-		i++;
 	}
 
 	return 0;
@@ -222,6 +237,31 @@ int traceeval_compare(struct traceeval *orig, struct traceeval *copy)
 }
 
 /**
+ * Resize a struct traceeval_type array to a size of @size + 1.
+ *
+ * Returns a pointer to the resized array, or NULL if the provided pointer was
+ * freed to due lack of memory.
+ */
+static struct traceeval_type *type_realloc(struct traceeval_type *defs,
+		size_t size)
+{
+	struct traceeval_type *tmp_defs = NULL;
+	tmp_defs = realloc(defs,
+			(size + 1) * sizeof(struct traceeval_type));
+	if (!tmp_defs)
+		goto fail_type_realloc;
+	return tmp_defs;
+
+fail_type_realloc:
+	for (int i = 0; i < size; i++) {
+		if (defs[i].name)
+			free(defs[i].name);
+	}
+	free(defs);
+	return NULL;
+}
+
+/**
  * Clone traceeval_type array @defs to the heap. Must be terminated with
  * an instance of type TRACEEVAL_TYPE_NONE.
  * Returns NULL if @defs is NULL, or a name is not null terminated.
@@ -229,7 +269,6 @@ int traceeval_compare(struct traceeval *orig, struct traceeval *copy)
 static struct traceeval_type *type_alloc(const struct traceeval_type *defs)
 {
 	struct traceeval_type *new_defs = NULL;
-	struct traceeval_type *tmp_defs = NULL;
 	char *name;
 	size_t size = 0;
 
@@ -241,13 +280,11 @@ static struct traceeval_type *type_alloc(const struct traceeval_type *defs)
 		return new_defs;
 	}
 
-	do {
+	for_each_key(size, defs) {
 		// Resize heap defs and clone
-		tmp_defs = realloc(new_defs,
-				(size + 1) * sizeof(struct traceeval_type));
-		if (!tmp_defs)
+		new_defs = type_realloc(new_defs, size);
+		if (!new_defs)
 			goto fail_type_alloc;
-		new_defs = tmp_defs;
 
 		// copy current def data to new_def
 		new_defs[size] = defs[size];
@@ -263,14 +300,19 @@ static struct traceeval_type *type_alloc(const struct traceeval_type *defs)
 				goto fail_type_alloc_name;
 			new_defs[size].name = name;
 		}
-	} while (defs[size++].type != TRACEEVAL_TYPE_NONE);
+	}
+
+	// append array terminator
+	new_defs = type_realloc(new_defs, size);
+	if (!new_defs)
+		goto fail_type_alloc;
+	new_defs[size].type = TRACEEVAL_TYPE_NONE;
 
 	return new_defs;
 fail_type_alloc:
 	if (defs[size].name)
 		print_err("failed to allocate memory for traceeval_type %s", defs[size].name);
 	print_err("failed to allocate memory for traceeval_type index %zu", size);
-
 	return NULL;
 
 fail_type_alloc_name:
@@ -278,11 +320,6 @@ fail_type_alloc_name:
 		print_err("failed to allocate name for traceeval_type %s", defs[size].name);
 
 	print_err("failed to allocate name for traceeval_type index %zu", size);
-	for (int i = 0; i < size; i++) {
-		if (new_defs[i].name)
-			free(new_defs[i].name);
-	}
-	free(new_defs);
 	return NULL;
 }
 
@@ -353,18 +390,16 @@ fail_eval_init_unalloced:
  */
 static void type_release(struct traceeval_type *defs)
 {
-	enum traceeval_data_type type;
 	size_t i = 0;
 
 	if (!defs)
 		return;
 
-	do {
-		type = defs[i].type;
+	for_each_key(i, defs) {
 		if (defs[i].name)
 			free(defs[i].name);
-		i++;
-	} while (type != TRACEEVAL_TYPE_NONE);
+	}
+
 	free(defs);
 }
 
@@ -373,12 +408,12 @@ static void type_release(struct traceeval_type *defs)
  */
 static void clean_data(union traceeval_data *data, struct traceeval_type *def)
 {
-	size_t i = -1;
+	size_t i = 0;
 
 	if (!data || !def)
 		return;
-	
-	while (def[++i].type != TRACEEVAL_TYPE_NONE) {
+
+	for_each_key(i, def) {
 		switch (def[i].type) {
 		case TRACEEVAL_TYPE_STRING:
 			if (data[i].string)
