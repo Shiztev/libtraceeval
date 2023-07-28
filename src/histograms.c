@@ -20,6 +20,19 @@
 #define for_each_key(i, keys)	\
 	for (i = 0; (keys)[(i)].type != TRACEEVAL_TYPE_NONE; (i)++)
 
+/**
+ * Compare two integers of variable length.
+ *
+ * Return 0 if @a and @b are the same, 1 if @a is greater than @b, and -1
+ * if @b is greater than @a.
+ */
+#define compare_numbers_return(a, b)	\
+do {					\
+	if ((a) < (b))			\
+		return -1;		\
+	return (a) != (b);		\
+} while (0)				\
+
 /** A key-value pair */
 struct entry {
 	union traceeval_data	*keys;
@@ -56,10 +69,171 @@ static void print_err(const char *fmt, ...)
 	fprintf(stderr, "\n");
 }
 
-// TODO
+/**
+ * Return 0 if @orig and @copy are the same, 1 otherwise.
+ */
+static int compare_traceeval_type(struct traceeval_type *orig,
+		struct traceeval_type *copy)
+{
+	int o_name_null;
+	int c_name_null;
+
+	// same memory/null
+	if (orig == copy)
+		return 0;
+
+	size_t i = 0;
+	do {
+		if (orig[i].type != copy[i].type)
+			return 1;
+		if (orig[i].type == TRACEEVAL_TYPE_NONE)
+			return 0;
+		if (orig[i].flags != copy[i].flags)
+			return 1;
+		if (orig[i].id != copy[i].id)
+			return 1;
+		if (orig[i].dyn_release != copy[i].dyn_release)
+			return 1;
+		if (orig[i].dyn_cmp != copy[i].dyn_cmp)
+			return 1;
+
+		// make sure both names are same type
+		o_name_null = !orig[i].name;
+		c_name_null = !copy[i].name;
+		if (o_name_null != c_name_null)
+			return 1;
+		if (o_name_null)
+			continue;
+		if (strcmp(orig[i].name, copy[i].name) != 0)
+			return 1;
+	} while (orig[i++].type != TRACEEVAL_TYPE_NONE);
+
+	return 0;
+}
+
+/**
+ * Return 0 if @orig and @copy are the same, 1 if @orig is greater than @copy,
+ * -1 for the other way around, and -2 on error.
+ */
+static int compare_traceeval_data(union traceeval_data *orig,
+		const union traceeval_data *copy, struct traceeval_type *type)
+{
+	if (!orig || !copy)
+		return 1;
+
+	switch (type->type) {
+	case TRACEEVAL_TYPE_NONE:
+		/* There is no corresponding traceeval_data for TRACEEVAL_TYPE_NONE */
+		return -2;
+
+	case TRACEEVAL_TYPE_STRING:
+		int i = strcmp(orig->string, copy->string);
+		if (!i)
+			return 0;
+		if (i > 0)
+			return 1;
+		return -1;
+
+	case TRACEEVAL_TYPE_NUMBER:
+		compare_numbers_return(orig->number, copy->number);
+
+	case TRACEEVAL_TYPE_NUMBER_64:
+		compare_numbers_return(orig->number_64, copy->number_64);
+
+	case TRACEEVAL_TYPE_NUMBER_32:
+		compare_numbers_return(orig->number_32, copy->number_32);
+
+	case TRACEEVAL_TYPE_NUMBER_16:
+		compare_numbers_return(orig->number_16, copy->number_16);
+
+	case TRACEEVAL_TYPE_NUMBER_8:
+		compare_numbers_return(orig->number_8, copy->number_8);
+
+	case TRACEEVAL_TYPE_DYNAMIC:
+		return type->dyn_cmp(orig->dyn_data, copy->dyn_data, type);
+
+	default:
+		print_err("%d is out of range of enum traceeval_data_type", type->type);
+		return -2;
+	}
+}
+
+/**
+ * Compare arrays fo union traceeval_data's with respect to @def.
+ *
+ * Return 0 if @orig and @copy are the same, 1 if not, and -1 on error.
+ */
+static int compare_traceeval_data_set(union traceeval_data *orig,
+		const union traceeval_data *copy, struct traceeval_type *def)
+{
+	int i = 0;
+	int check;
+
+	// compare data arrays
+	for_each_key(i, def) {
+		if ((check = compare_traceeval_data(&orig[i], &copy[i], &def[i])))
+			goto fail_compare_data_set;
+	}
+
+	return 0;
+fail_compare_data_set:
+	if (check == -2)
+		return -1;
+	return 1;
+}
+
+/**
+ * Return 0 if @orig and @copy are the same, 1 if not, and -1 on error.
+ */
+static int compare_entries(struct entry *orig, struct entry *copy,
+		struct traceeval *teval)
+{
+	int check;
+
+	// compare keys
+	check = compare_traceeval_data_set(orig->keys, copy->keys,
+			teval->def_keys);
+	if (check)
+		return check;
+
+	// compare values
+	check = compare_traceeval_data_set(orig->vals, copy->vals,
+			teval->def_vals);
+	return check;
+}
+
+/**
+ * Return 0 if struct hist_table of @orig and @copy are the same, 1 if not,
+ * and -1 on error.
+ */
+static int compare_hist(struct traceeval *orig, struct traceeval *copy)
+{
+	struct hist_table *o_hist = orig->hist;
+	struct hist_table *c_hist = copy->hist;
+	int cnt = !(o_hist->nr_entries == c_hist->nr_entries);
+	if (cnt)
+		return 1;
+
+	for (size_t i = 0; i < o_hist->nr_entries; i++) {
+		// cmp each entry
+		compare_entries(&o_hist->map[i], &c_hist->map[i], orig);
+	}
+	return 0;	
+}
+
+/**
+ * Return 0 if @orig and @copy are the same, 1 if not, -1 if error.
+ */
 int traceeval_compare(struct traceeval *orig, struct traceeval *copy)
 {
-	return -1;
+	if ((!orig) || (!copy))
+		return -1;
+
+	int keys = compare_traceeval_type(orig->def_keys, copy->def_keys);
+	int vals = compare_traceeval_type(orig->def_vals, copy->def_vals);
+	int hists = compare_hist(orig, copy);
+
+	return (keys || vals || hists);
 }
 
 /**
