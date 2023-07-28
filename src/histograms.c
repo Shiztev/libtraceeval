@@ -209,10 +209,93 @@ fail_eval_init_unalloced:
 	return NULL;
 }
 
-// TODO
+/**
+ * Deallocate array of traceeval_type's, which must be terminated by
+ * TRACEEVAL_TYPE_NONE.
+ */
+static void type_release(struct traceeval_type *defs)
+{
+	size_t i = 0;
+
+	if (!defs)
+		return;
+
+	for_each_key(i, defs) {
+		if (defs[i].name)
+			free(defs[i].name);
+	}
+
+	free(defs);
+}
+
+/**
+ * Deallocate any specified dynamic data in @data.
+ */
+static void clean_data(union traceeval_data *data, struct traceeval_type *def)
+{
+	size_t i = 0;
+
+	if (!data || !def)
+		return;
+
+	for_each_key(i, def) {
+		switch (def[i].type) {
+		case TRACEEVAL_TYPE_STRING:
+			if (data[i].string)
+				free(data[i].string);
+			break;
+		case TRACEEVAL_TYPE_DYNAMIC:
+			def[i].dyn_release(data[i].dyn_data, &def[i]);
+			break;
+		default:
+			break;
+		}
+	}
+}
+
+/**
+ * Deallocate all possible data stored within the entry.
+ */
+static void clean_entry(struct entry *entry, struct traceeval *teval)
+{
+	if (!entry)
+		return;
+
+	// deallocate dynamic traceeval_data
+	clean_data(entry->keys, teval->def_keys);
+	clean_data(entry->vals, teval->def_vals);
+	free(entry->keys);
+	free(entry->vals);
+}
+
+/**
+ * Deallocate the hist_table allocated to a traceeval instance.
+ */
+static void hist_table_release(struct traceeval *teval)
+{
+	struct hist_table *hist = teval->hist;
+
+	if (!hist)
+		return;
+
+	for (size_t i = 0; i < hist->nr_entries; i++) {
+		clean_entry(&hist->map[i], teval);
+	}
+	free(hist->map);
+	free(hist);
+}
+
+/**
+ * Deallocate a traceeval instance.
+ */
 void traceeval_release(struct traceeval *teval)
 {
-
+	if (teval) {
+		hist_table_release(teval);
+		type_release(teval->def_keys);
+		type_release(teval->def_vals);
+		free(teval);
+	}
 }
 
 // TODO
