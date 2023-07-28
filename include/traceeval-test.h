@@ -2,7 +2,6 @@
 /*
  * libtraceeval interface for unit testing.
  *
- * Copyright (C) 2023 Google Inc, Steven Rostedt <rostedt@goodmis.org>
  * Copyright (C) 2023 Google Inc, Stevie Alvarez <stevie.6strings@gmail.com>
  */
 
