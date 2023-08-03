@@ -221,3 +221,87 @@ fail_init_unalloced:
 	print_err(err_msg);
 	return NULL;
 }
+
+/*
+ * Free any specified dynamic data in @data.
+ */
+static void clean_data(union traceeval_data *data, struct traceeval_type *defs,
+		size_t size)
+{
+	size_t i;
+
+	if (!data || !defs)
+		return;
+
+	for (i = 0; i < size; i++) {
+		switch (defs[i].type) {
+		case TRACEEVAL_TYPE_STRING:
+			free(data[i].string);
+			break;
+		case TRACEEVAL_TYPE_DYNAMIC:
+			if (defs[i].dyn_release)
+				defs[i].dyn_release(data[i].dyn_data, &defs[i]);
+			break;
+		default:
+			break;
+		}
+	}
+}
+
+/*
+ * Free all possible data stored within the entry.
+ */
+static void clean_entry(struct entry *entry, struct traceeval *teval)
+{
+	if (!entry)
+		return;
+
+	/* free dynamic traceeval_data */
+	clean_data(entry->keys, teval->key_types, teval->nr_key_types);
+	clean_data(entry->vals, teval->val_types, teval->nr_val_types);
+	free(entry->keys);
+	free(entry->vals);
+}
+
+/*
+ * Free the hist_table allocated to a traceeval instance.
+ */
+static void hist_table_release(struct traceeval *teval)
+{
+	struct hist_table *hist = teval->hist;
+
+	if (!hist)
+		return;
+
+	for (size_t i = 0; i < hist->nr_entries; i++) {
+		clean_entry(&hist->map[i], teval);
+	}
+
+	free(hist->map);
+	free(hist);
+	teval->hist = NULL;
+}
+
+/*
+ * traceeval_release - release a traceeval descriptor
+ * @teval: An instance of traceeval returned by traceeval_init()
+ *
+ * When the caller of traceeval_init() is done with the returned @teval,
+ * it must call traceeval_release().
+ *
+ * This frees all internally allocated data of @teval and will call the
+ * corresponding dyn_release() functions registered for keys and values of
+ * type TRACEEVAL_TYPE_DYNAMIC.
+ */
+void traceeval_release(struct traceeval *teval)
+{
+	if (!teval)
+		return;
+
+	hist_table_release(teval);
+	type_release(teval->key_types, teval->nr_key_types);
+	type_release(teval->val_types, teval->nr_val_types);
+	teval->key_types = NULL;
+	teval->val_types = NULL;
+	free(teval);
+}

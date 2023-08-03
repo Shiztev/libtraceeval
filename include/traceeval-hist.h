@@ -130,4 +130,6 @@ struct traceeval;
 struct traceeval *traceeval_init(const struct traceeval_type *keys,
 		const struct traceeval_type *vals);
 
+void traceeval_release(struct traceeval *teval);
+
 #endif /* __LIBTRACEEVAL_HIST_H__ */
